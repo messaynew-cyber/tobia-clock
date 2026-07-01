@@ -6,7 +6,6 @@ class ClockPainter extends CustomPainter {
 
   ClockPainter({required this.dateTime});
 
-  // Gold/copper palette
   static const Color gold = Color(0xFFE8D5B7);
   static const Color goldDim = Color(0xFFA09080);
   static const Color goldBright = Color(0xFFF5E6D3);
@@ -14,279 +13,196 @@ class ClockPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 12;
+    final c = Offset(size.width / 2, size.height / 2);
+    final r = size.width / 2 - 12;
     final now = dateTime;
 
-    // --- Outer glow ring ---
-    _drawGlowRing(canvas, center, radius);
+    _drawGlowRing(canvas, c, r);
+    _drawOuterRing(canvas, c, r);
+    _drawTickMarks(canvas, c, r);
 
-    // --- Main ring ---
-    _drawOuterRing(canvas, center, radius);
-
-    // --- Tick marks ---
-    _drawTickMarks(canvas, center, radius);
-
-    // --- Hands ---
     final hourAngle = _hourAngle(now);
     final minuteAngle = _minuteAngle(now);
     final secondAngle = _secondAngle(now);
 
-    _drawHourHand(canvas, center, radius, hourAngle);
-    _drawMinuteHand(canvas, center, radius, minuteAngle);
-    _drawSecondHand(canvas, center, radius, secondAngle);
-
-    // --- Center dot ---
-    _drawCenterDot(canvas, center);
+    _drawHourHand(canvas, c, r, hourAngle);
+    _drawMinuteHand(canvas, c, r, minuteAngle);
+    _drawSecondHand(canvas, c, r, secondAngle);
+    _drawCenterDot(canvas, c);
   }
 
-  void _drawGlowRing(Canvas canvas, Offset center, double radius) {
+  void _drawGlowRing(Canvas canvas, Offset c, double r) {
+    final rect = Rect.fromCircle(center: c, radius: r + 20);
     final paint = Paint()
       ..shader = RadialGradient(
         colors: [
-          gold.withOpacity(0.08),
-          gold.withOpacity(0.02),
+          gold.withAlpha(20),
+          gold.withAlpha(5),
           Colors.transparent,
         ],
-        stops: [0.85, 0.95, 1.1],
-      ).createShader(Rect.fromCircle(center: center, radius: radius + 20))
+        stops: const [0.85, 0.95, 1.0],
+      ).createShader(rect)
       ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(center, radius + 20, paint);
+    canvas.drawCircle(c, r + 20, paint);
   }
 
-  void _drawOuterRing(Canvas canvas, Offset center, double radius) {
-    // Subtle outer ring
-    final paint = Paint()
-      ..color = gold.withOpacity(0.15)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-
-    canvas.drawCircle(center, radius, paint);
-
-    // Inner ring
-    final innerPaint = Paint()
-      ..color = gold.withOpacity(0.08)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.5;
-
-    canvas.drawCircle(center, radius * 0.92, innerPaint);
+  void _drawOuterRing(Canvas canvas, Offset c, double r) {
+    canvas.drawCircle(
+      c, r,
+      Paint()
+        ..color = gold.withAlpha(38)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
+    canvas.drawCircle(
+      c, r * 0.92,
+      Paint()
+        ..color = gold.withAlpha(20)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5,
+    );
   }
 
-  void _drawTickMarks(Canvas canvas, Offset center, double radius) {
+  void _drawTickMarks(Canvas canvas, Offset c, double r) {
     for (int i = 0; i < 12; i++) {
       final angle = (i * 30 - 90) * (pi / 180);
       final isMajor = i % 3 == 0;
+      final outerX = c.dx + r * 0.92 * cos(angle);
+      final outerY = c.dy + r * 0.92 * sin(angle);
+      final innerMult = isMajor ? 0.80 : 0.85;
+      final innerX = c.dx + r * innerMult * cos(angle);
+      final innerY = c.dy + r * innerMult * sin(angle);
 
-      final outerX = center.dx + radius * 0.92 * cos(angle);
-      final outerY = center.dy + radius * 0.92 * sin(angle);
-      final innerX = center.dx + radius * (isMajor ? 0.80 : 0.85) * cos(angle);
-      final innerY = center.dy + radius * (isMajor ? 0.80 : 0.85) * sin(angle);
-
-      final paint = Paint()
-        ..color = isMajor ? gold.withOpacity(0.7) : gold.withOpacity(0.3)
-        ..strokeWidth = isMajor ? 2.0 : 1.0
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke;
-
-      canvas.drawLine(Offset(outerX, outerY), Offset(innerX, innerY), paint);
+      canvas.drawLine(
+        Offset(outerX, outerY),
+        Offset(innerX, innerY),
+        Paint()
+          ..color = isMajor ? gold.withAlpha(179) : gold.withAlpha(77)
+          ..strokeWidth = isMajor ? 2.0 : 1.0
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke,
+      );
     }
   }
 
-  void _drawHourHand(Canvas canvas, Offset center, double radius, double angle) {
-    final path = Path();
-    final length = radius * 0.50;
+  void _drawHourHand(Canvas canvas, Offset c, double r, double angle) {
+    final length = r * 0.50;
     final baseWidth = 4.5;
     final tipWidth = 2.0;
-
-    final tip = Offset(
-      center.dx + length * cos(angle),
-      center.dy + length * sin(angle),
-    );
-
-    // Base points (perpendicular to hand direction)
     final perpAngle = angle + pi / 2;
-    final baseBack = -radius * 0.12;
+    final baseBack = -r * 0.12;
 
-    final baseLeft = Offset(
-      center.dx + baseBack * cos(angle) + baseWidth * cos(perpAngle),
-      center.dy + baseBack * sin(angle) + baseWidth * sin(perpAngle),
-    );
-    final baseRight = Offset(
-      center.dx + baseBack * cos(angle) - baseWidth * cos(perpAngle),
-      center.dy + baseBack * sin(angle) - baseWidth * sin(perpAngle),
-    );
+    final tip = Offset(c.dx + length * cos(angle), c.dy + length * sin(angle));
+    final baseLeft = Offset(c.dx + baseBack * cos(angle) + baseWidth * cos(perpAngle),
+        c.dy + baseBack * sin(angle) + baseWidth * sin(perpAngle));
+    final baseRight = Offset(c.dx + baseBack * cos(angle) - baseWidth * cos(perpAngle),
+        c.dy + baseBack * sin(angle) - baseWidth * sin(perpAngle));
+    final tipLeft = Offset(tip.dx + tipWidth * cos(perpAngle), tip.dy + tipWidth * sin(perpAngle));
+    final tipRight = Offset(tip.dx - tipWidth * cos(perpAngle), tip.dy - tipWidth * sin(perpAngle));
 
-    final tipLeft = Offset(
-      tip.dx + tipWidth * cos(perpAngle),
-      tip.dy + tipWidth * sin(perpAngle),
-    );
-    final tipRight = Offset(
-      tip.dx - tipWidth * cos(perpAngle),
-      tip.dy - tipWidth * sin(perpAngle),
-    );
+    final path = Path()
+      ..moveTo(baseRight.dx, baseRight.dy)
+      ..lineTo(tipRight.dx, tipRight.dy)
+      ..lineTo(tipLeft.dx, tipLeft.dy)
+      ..lineTo(baseLeft.dx, baseLeft.dy)
+      ..close();
 
-    path.moveTo(baseRight.dx, baseRight.dy);
-    path.lineTo(tipRight.dx, tipRight.dy);
-    path.lineTo(tipLeft.dx, tipLeft.dy);
-    path.lineTo(baseLeft.dx, baseLeft.dy);
-    path.close();
-
-    final paint = Paint()
-      ..shader = LinearGradient(
+    final rect = Rect.fromCircle(center: c, radius: length);
+    canvas.drawPath(path, Paint()
+      ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [goldBright, gold],
-      ).createShader(Rect.fromCircle(center: center, radius: length))
-      ..style = PaintingStyle.fill;
-
-    canvas.drawPath(path, paint);
-
-    // Subtle shadow
-    final shadowPath = Path()
-      ..moveTo(baseRight.dx + 1, baseRight.dy + 1)
-      ..lineTo(tipRight.dx + 1, tipRight.dy + 1)
-      ..lineTo(tipLeft.dx + 1, tipLeft.dy + 1)
-      ..lineTo(baseLeft.dx + 1, baseLeft.dy + 1)
-      ..close();
-
-    canvas.drawPath(shadowPath, Paint()..color = Colors.black.withOpacity(0.3));
+      ).createShader(rect)
+      ..style = PaintingStyle.fill);
   }
 
-  void _drawMinuteHand(Canvas canvas, Offset center, double radius, double angle) {
-    final path = Path();
-    final length = radius * 0.72;
+  void _drawMinuteHand(Canvas canvas, Offset c, double r, double angle) {
+    final length = r * 0.72;
     final baseWidth = 3.0;
     final tipWidth = 1.5;
-
-    final tip = Offset(
-      center.dx + length * cos(angle),
-      center.dy + length * sin(angle),
-    );
-
     final perpAngle = angle + pi / 2;
-    final baseBack = -radius * 0.15;
+    final baseBack = -r * 0.15;
 
-    final baseLeft = Offset(
-      center.dx + baseBack * cos(angle) + baseWidth * cos(perpAngle),
-      center.dy + baseBack * sin(angle) + baseWidth * sin(perpAngle),
-    );
-    final baseRight = Offset(
-      center.dx + baseBack * cos(angle) - baseWidth * cos(perpAngle),
-      center.dy + baseBack * sin(angle) - baseWidth * sin(perpAngle),
-    );
+    final tip = Offset(c.dx + length * cos(angle), c.dy + length * sin(angle));
+    final baseLeft = Offset(c.dx + baseBack * cos(angle) + baseWidth * cos(perpAngle),
+        c.dy + baseBack * sin(angle) + baseWidth * sin(perpAngle));
+    final baseRight = Offset(c.dx + baseBack * cos(angle) - baseWidth * cos(perpAngle),
+        c.dy + baseBack * sin(angle) - baseWidth * sin(perpAngle));
+    final tipLeft = Offset(tip.dx + tipWidth * cos(perpAngle), tip.dy + tipWidth * sin(perpAngle));
+    final tipRight = Offset(tip.dx - tipWidth * cos(perpAngle), tip.dy - tipWidth * sin(perpAngle));
 
-    final tipLeft = Offset(
-      tip.dx + tipWidth * cos(perpAngle),
-      tip.dy + tipWidth * sin(perpAngle),
-    );
-    final tipRight = Offset(
-      tip.dx - tipWidth * cos(perpAngle),
-      tip.dy - tipWidth * sin(perpAngle),
-    );
+    final path = Path()
+      ..moveTo(baseRight.dx, baseRight.dy)
+      ..lineTo(tipRight.dx, tipRight.dy)
+      ..lineTo(tipLeft.dx, tipLeft.dy)
+      ..lineTo(baseLeft.dx, baseLeft.dy)
+      ..close();
 
-    path.moveTo(baseRight.dx, baseRight.dy);
-    path.lineTo(tipRight.dx, tipRight.dy);
-    path.lineTo(tipLeft.dx, tipLeft.dy);
-    path.lineTo(baseLeft.dx, baseLeft.dy);
-    path.close();
-
-    final paint = Paint()
-      ..shader = LinearGradient(
+    final rect = Rect.fromCircle(center: c, radius: length);
+    canvas.drawPath(path, Paint()
+      ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [goldBright, goldDim],
-      ).createShader(Rect.fromCircle(center: center, radius: length))
-      ..style = PaintingStyle.fill;
-
-    canvas.drawPath(path, paint);
+      ).createShader(rect)
+      ..style = PaintingStyle.fill);
   }
 
-  void _drawSecondHand(Canvas canvas, Offset center, double radius, double angle) {
-    final length = radius * 0.78;
-    final backLength = radius * 0.18;
+  void _drawSecondHand(Canvas canvas, Offset c, double r, double angle) {
+    final length = r * 0.78;
+    final backLength = r * 0.18;
+    final tip = Offset(c.dx + length * cos(angle), c.dy + length * sin(angle));
+    final back = Offset(c.dx - backLength * cos(angle), c.dy - backLength * sin(angle));
 
-    final tip = Offset(
-      center.dx + length * cos(angle),
-      center.dy + length * sin(angle),
-    );
-    final back = Offset(
-      center.dx - backLength * cos(angle),
-      center.dy - backLength * sin(angle),
-    );
-
-    // Main line
-    final linePaint = Paint()
+    canvas.drawLine(c, tip, Paint()
       ..color = secondHand
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
+      ..style = PaintingStyle.stroke);
 
-    canvas.drawLine(center, tip, linePaint);
-
-    // Counterbalance
-    final counterPaint = Paint()
-      ..color = secondHand.withOpacity(0.5)
+    canvas.drawLine(c, back, Paint()
+      ..color = secondHand.withAlpha(128)
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
+      ..style = PaintingStyle.stroke);
 
-    canvas.drawLine(center, back, counterPaint);
-
-    // Tip dot
-    final dotPaint = Paint()
+    canvas.drawCircle(tip, 2.5, Paint()
       ..color = secondHand
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(tip, 2.5, dotPaint);
+      ..style = PaintingStyle.fill);
   }
 
-  void _drawCenterDot(Canvas canvas, Offset center) {
-    // Outer glow
-    final glowPaint = Paint()
+  void _drawCenterDot(Canvas canvas, Offset c) {
+    final glowRect = Rect.fromCircle(center: c, radius: 8);
+    canvas.drawCircle(c, 8, Paint()
       ..shader = RadialGradient(
-        colors: [
-          gold.withOpacity(0.6),
-          gold.withOpacity(0.1),
-          Colors.transparent,
-        ],
-        stops: [0.0, 0.3, 1.0],
-      ).createShader(Rect.fromCircle(center: center, radius: 8))
-      ..style = PaintingStyle.fill;
+        colors: [gold.withAlpha(153), gold.withAlpha(26), Colors.transparent],
+        stops: const [0.0, 0.3, 1.0],
+      ).createShader(glowRect)
+      ..style = PaintingStyle.fill);
 
-    canvas.drawCircle(center, 8, glowPaint);
-
-    // Solid center
-    final centerPaint = Paint()
+    canvas.drawCircle(c, 3.5, Paint()
       ..color = goldBright
-      ..style = PaintingStyle.fill;
+      ..style = PaintingStyle.fill);
 
-    canvas.drawCircle(center, 3.5, centerPaint);
-
-    // Inner highlight
-    final highlightPaint = Paint()
-      ..color = Colors.white.withOpacity(0.4)
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(Offset(center.dx - 0.5, center.dy - 0.5), 1.5, highlightPaint);
+    canvas.drawCircle(Offset(c.dx - 0.5, c.dy - 0.5), 1.5, Paint()
+      ..color = Colors.white.withAlpha(102)
+      ..style = PaintingStyle.fill);
   }
 
   double _hourAngle(DateTime now) {
-    final hours = now.hour % 12;
-    final minutes = now.minute / 60.0;
-    return ((hours + minutes) * 30 - 90) * (pi / 180);
+    final h = now.hour % 12 + now.minute / 60.0;
+    return (h * 30 - 90) * (pi / 180);
   }
 
   double _minuteAngle(DateTime now) {
-    final minutes = now.minute;
-    final seconds = now.second / 60.0;
-    return ((minutes + seconds) * 6 - 90) * (pi / 180);
+    final m = now.minute + now.second / 60.0;
+    return (m * 6 - 90) * (pi / 180);
   }
 
   double _secondAngle(DateTime now) {
-    final seconds = now.second;
-    final millis = now.millisecond / 1000.0;
-    return ((seconds + millis) * 6 - 90) * (pi / 180);
+    final s = now.second + now.millisecond / 1000.0;
+    return (s * 6 - 90) * (pi / 180);
   }
 
   @override
